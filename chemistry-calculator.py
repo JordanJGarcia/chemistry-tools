@@ -39,7 +39,7 @@ class Element(object):
         return self.weight
 
     def printElement(self):
-        print(f"\nNumber: {self.number}\nName:   {self.name}\nSymbol: {self.symbol}\nWeight: {self.weight}\n")
+        print(f"\tNumber: {self.number}\n\tName:   {self.name}\n\tSymbol: {self.symbol}\n\tWeight: {self.weight}\n")
 
 
 class PeriodicTable(object):
@@ -60,11 +60,20 @@ class PeriodicTable(object):
         while True:
             f = input("Enter formula: ")
 
+            print("")
             if f == "exit":
                 break
 
-            self.getFormulaWeight(f)
-                
+            molecules = self.breakDownFormula(f)
+
+            if molecules:
+                w = self.getWeight(molecules)
+                if w:
+                    print(f"\tformula: {f}, weight: {w}")
+
+                p = self.getPercentageComposition(molecules)
+                print("")
+
 
     def elementExists(self, element: str):
 
@@ -72,55 +81,85 @@ class PeriodicTable(object):
             print(f"ERROR: {element} not found", file=sys.stderr)
             return 0
 
+        self.elements[element].printElement()
         return 1
 
-    def getFormulaWeight(self, formula: str):
-        
+    
+    def breakDownFormula(self, formula: str):
+        """ this will return a dictionary with the separate molecules in the provided formula """
+
+        molecule = []  # this will store info about the individual molecule
+        molecules = [] # this will store the complete set of molecule information
+
         element = ""
         subscript = "1"
-        weight = 0
         i = 0
 
-        # get individual elements
         while i < len(formula):
-
-            # coefficient
-            #if i == 0 and formula[i].isdigit():
-            #    coefficient = int(formula[i])
 
             # start of element
             if formula[i].isupper():
 
-                # record wait of previous molecule
+                # store previous molecule
                 if element:
                     if self.elementExists(element):
-                        weight += (float(self.elements[element].getWeight()) * int(subscript))
+                        molecule = [ element, self.elements[element].getWeight(), subscript ]
+                        molecules.append(molecule)
                     else:
-                        return
+                        return 0
 
-                # new element found
+                # new molecule
                 element = formula[i]
                 subscript = "1"
-            
+
+            # 2 character element name
             if formula[i].islower():
                 element += formula[i]
 
             # subscript
             if i != 0 and formula[i].isdigit():
                 subscript = formula[i]
+                
                 while i + 1 < len(formula) and formula[i + 1].isdigit():
                     subscript += formula[i + 1]
                     i += 1
 
             i += 1
 
-        # record wait of final molecule
+        # store last molecule
         if self.elementExists(element):
-            weight += (float(self.elements[element].getWeight()) * int(subscript))
-        else:
-            return
+            molecule = [ element, self.elements[element].getWeight(), subscript ]
+            molecules.append(molecule)
+        else:                                                                                                                                                                                 
+            return 0
 
-        print(f"formula: {formula}, weight: {weight}")
+        return molecules
+
+
+
+    def getWeight(self, molecules: list):
+        
+        weight = 0
+
+        for m in molecules:
+            weight += float(m[1]) * int(m[2])
+
+        return weight
+
+
+
+    def getPercentageComposition(self, molecules: list):
+        
+        totalWeight = self.getWeight(molecules)
+
+        print("")
+        for m in molecules:
+            weight = float(m[1]) * int(m[2])
+            s = int(m[2]) if int(m[2]) > 1 else ""
+            print(f"\t{m[0]}{s}: {weight}g / {totalWeight}g * 100 = {weight / totalWeight * 100} %")
+
+
+
 
 
 if __name__ == "__main__":
