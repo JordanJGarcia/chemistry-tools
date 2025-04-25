@@ -1,6 +1,7 @@
 #! /usr/bin/python3
 
 import csv
+import sys
 
 class Element(object):
     """ object representing an element in the periodic table """
@@ -65,17 +66,23 @@ class PeriodicTable(object):
             self.getFormulaWeight(f)
                 
 
+    def elementExists(self, element: str):
+
+        if not element in self.elements:
+            print(f"ERROR: {element} not found", file=sys.stderr)
+            return 0
+
+        return 1
+
     def getFormulaWeight(self, formula: str):
         
         element = ""
         subscript = "1"
         weight = 0
-
         i = 0
-        size = len(formula)
 
         # get individual elements
-        while i < size:
+        while i < len(formula):
 
             # coefficient
             #if i == 0 and formula[i].isdigit():
@@ -83,9 +90,13 @@ class PeriodicTable(object):
 
             # start of element
             if formula[i].isupper():
-                # save last molecule
+
+                # record wait of previous molecule
                 if element:
-                    weight += (float(self.elements[element].getWeight()) * int(subscript))
+                    if self.elementExists(element):
+                        weight += (float(self.elements[element].getWeight()) * int(subscript))
+                    else:
+                        return
 
                 # new element found
                 element = formula[i]
@@ -101,12 +112,14 @@ class PeriodicTable(object):
                     subscript += formula[i + 1]
                     i += 1
 
-
             i += 1
 
-        # save final molecule
-        #print(f"molecule: {element}, subscript: {subscript}")
-        weight += (float(self.elements[element].getWeight()) * int(subscript))
+        # record wait of final molecule
+        if self.elementExists(element):
+            weight += (float(self.elements[element].getWeight()) * int(subscript))
+        else:
+            return
+
         print(f"formula: {formula}, weight: {weight}")
 
 
