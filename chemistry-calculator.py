@@ -62,41 +62,74 @@ class StoichiometryCalculator(object):
         molecules = []
         formula = ""
         weight = 0.0
+        grams = 0.0
+        moles = 0.0
+        molarity = 0.0
 
         while True:
 
             if i == 0:
                 entry = input("Enter formula: ")
             else:
-                entry = input("Enter new formula, or (1) moles to grams (2) grams to moles: ")
+                entry = input("Enter new formula, or (m) moles to grams (g) grams to moles (M) moles to mL: ")
 
             print("")
             
             if entry == "exit":
                 break
-            elif entry == "1":
+            elif entry == "m":
                 # use formula that has been entered already
                 if not formula:
                     print("ERROR: formula not provided\n", file=sys.stderr)
                     continue
 
-                self.molesToGrams(formula, weight)
-            elif entry == "2":
+                grams = self.molesToGrams(formula, weight)
+            elif entry == "g":
                 # use formula that has been entered already
 
                 if not formula:
                     print("ERROR: formula not provided\n", file=sys.stderr)
                     continue
 
-                self.gramsToMoles(formula, weight)
+                moles = self.gramsToMoles(formula, weight)
+            elif entry == "M":
+                # use formula tat has been entered already
+                if not formula:
+                    print("ERROR: formula not provided\n", file=sys.stderr)
+                    continue
+
+                # can't get molarity without moles
+                if moles != 0.0:
+                    req = input(f"use {moles} mol? (y or n) ")
+
+                    if req == "y":
+                        molarity = self.molesToML(formula, moles)
+                        continue
+                    elif req != "n":
+                        print(f"\nERROR: invalid option '{req}'\n", file=sys.stderr)
+                        continue
+
+                while True:
+                    req = input("enter moles: ")
+                    try:
+                        moles = float(req)
+                    except ValueError:
+                        print("\nERROR: not a float\n", file=sys.stderr)
+                        continue
+                    break
+
+                molarity = self.molesToML(formula, moles)
             else: # user entered a formula
                 molecules = self.breakDownFormula(entry)
 
                 if molecules:
                     formula = entry
                     weight = self.getWeight(molecules)
-                    print(f"\tformula: {formula}, weight: {weight}\n")
+                    moles = 0.0
+                    grams = 0.0
+                    molarity = 0.0
 
+                    print(f"\tformula: {formula}, weight: {weight}\n")
                     p = self.getPercentageComposition(molecules)
                     print("")
 
@@ -203,6 +236,7 @@ class StoichiometryCalculator(object):
             return 0
 
         print(f"\n\t{moles} mol {formula} = {weight * moles} g\n")
+        return float(weight * moles)
 
 
     def gramsToMoles(self, formula: str, weight: float):
@@ -217,7 +251,23 @@ class StoichiometryCalculator(object):
             return 0
 
         print(f"\n\t{grams} g {formula} = {grams / weight} mol\n")
+        return float(grams / weight)
 
+
+    def molesToML(self, formula: str, moles: float):
+        """ converts given moles to a liquid molarity """
+
+        req = input("M of solution (moles/1000ml): ")
+
+        try:
+            molarity = float(req)
+        except ValueError:
+            print("ERROR: not a float\n", file=sys.stderr)
+            return 0
+
+        print(f"\n\t{moles} mol {formula} of {molarity} M solution = {moles * 1000 / molarity} mL\n")
+        return float(moles * 1000 / molarity)
+        
 
 
 if __name__ == "__main__":
