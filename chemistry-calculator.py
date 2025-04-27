@@ -42,43 +42,71 @@ class Element(object):
         print(f"\tNumber: {self.number}\n\tName:   {self.name}\n\tSymbol: {self.symbol}\n\tWeight: {self.weight}\n")
 
 
-class PeriodicTable(object):
+class StoichiometryCalculator(object):
     """ object representing the periodic table of elements """
 
     def __init__(self):
         self.elements = {} # dict holding 118 elements
-        self.populate()
+        self.loadPeriodicTable()
         self.prompt()
 
-    def populate(self):
+    def loadPeriodicTable(self):
         with open("elements.csv", encoding="utf-8") as file:
             for row in csv.reader(file):
                 self.elements[row[1]] = Element(row)
 
     
     def prompt(self):
+
+        i = 0
+        molecules = []
+        formula = ""
+        weight = 0.0
+
         while True:
-            f = input("Enter formula: ")
+
+            if i == 0:
+                entry = input("Enter formula: ")
+            else:
+                entry = input("Enter new formula, or (1) moles to grams (2) grams to moles: ")
 
             print("")
-            if f == "exit":
+            
+            if entry == "exit":
                 break
+            elif entry == "1":
+                # use formula that has been entered already
+                if not formula:
+                    print("ERROR: formula not provided\n", file=sys.stderr)
+                    continue
 
-            molecules = self.breakDownFormula(f)
+                self.molesToGrams(formula, weight)
+            elif entry == "2":
+                # use formula that has been entered already
 
-            if molecules:
-                w = self.getWeight(molecules)
-                if w:
-                    print(f"\tformula: {f}, weight: {w}")
+                if not formula:
+                    print("ERROR: formula not provided\n", file=sys.stderr)
+                    continue
 
-                p = self.getPercentageComposition(molecules)
-                print("")
+                self.gramsToMoles(formula, weight)
+            else: # user entered a formula
+                molecules = self.breakDownFormula(entry)
+
+                if molecules:
+                    formula = entry
+                    weight = self.getWeight(molecules)
+                    print(f"\tformula: {formula}, weight: {weight}\n")
+
+                    p = self.getPercentageComposition(molecules)
+                    print("")
+
+            i += 1
 
 
     def elementExists(self, element: str):
 
         if not element in self.elements:
-            print(f"ERROR: {element} not found", file=sys.stderr)
+            print(f"ERROR: {element} not found\n", file=sys.stderr)
             return 0
 
         self.elements[element].printElement()
@@ -86,7 +114,7 @@ class PeriodicTable(object):
 
     
     def breakDownFormula(self, formula: str):
-        """ this will return a dictionary with the separate molecules in the provided formula """
+        """ this will return a list with the separate molecules in the provided formula """
 
         molecule = []  # this will store info about the individual molecule
         molecules = [] # this will store the complete set of molecule information
@@ -138,6 +166,7 @@ class PeriodicTable(object):
 
 
     def getWeight(self, molecules: list):
+        """ calculate the total weight of the formula in grams """
         
         weight = 0
 
@@ -149,18 +178,47 @@ class PeriodicTable(object):
 
 
     def getPercentageComposition(self, molecules: list):
+        """ calculate the percentage composition of each element in the formula """
         
         totalWeight = self.getWeight(molecules)
 
-        print("")
         for m in molecules:
             weight = float(m[1]) * int(m[2])
             s = int(m[2]) if int(m[2]) > 1 else ""
             print(f"\t{m[0]}{s}: {weight}g / {totalWeight}g * 100 = {weight / totalWeight * 100} %")
 
+            # store percentage composition for other uses
+            m.append(weight / totalWeight)
 
+
+    def molesToGrams(self, formula: str, weight: float):
+        """ converts a certain amount of moles to grams """
+
+        req = input("Enter moles: ")
+
+        try:
+            moles = float(req)
+        except ValueError:
+            print("ERROR: not a float\n", file=sys.stderr)
+            return 0
+
+        print(f"\n\t{moles} mol {formula} = {weight * moles} g\n")
+
+
+    def gramsToMoles(self, formula: str, weight: float):
+        """ converts a certain amount of grams to moles """
+
+        req = input("Enter grams: ")
+
+        try:
+            grams = float(req)
+        except ValueError:
+            print("ERROR: not a float\n", file=sys.stderr)
+            return 0
+
+        print(f"\n\t{grams} g {formula} = {grams / weight} mol\n")
 
 
 
 if __name__ == "__main__":
-    table = PeriodicTable()
+    calc = StoichiometryCalculator()
