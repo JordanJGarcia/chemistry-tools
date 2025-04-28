@@ -57,6 +57,7 @@ class StoichiometryCalculator(object):
 
     
     def prompt(self):
+        """ this is the main menu the user interfaces with """
 
         i = 0
         molecules = []
@@ -122,13 +123,19 @@ class StoichiometryCalculator(object):
             else: # user entered a formula
                 molecules = self.breakDownFormula(entry)
 
-                if molecules:
-                    formula = entry
-                    weight = self.getWeight(molecules)
-                    moles = 0.0
-                    grams = 0.0
-                    molarity = 0.0
+                if not molecules:
+                    continue
 
+                formula = entry
+                moles = 0.0
+                grams = 0.0
+                molarity = 0.0
+                weight = self.getWeight(molecules)
+
+                if weight == 0:
+                    print(f"ERROR: could not calculate weight for {formula}\n", file=sys.stderr)
+                    continue
+                else:
                     print(f"\tformula: {formula}, weight: {weight}\n")
                     p = self.getPercentageComposition(molecules)
                     print("")
@@ -204,7 +211,13 @@ class StoichiometryCalculator(object):
         weight = 0
 
         for m in molecules:
-            weight += float(m[1]) * int(m[2])
+            try:
+               elementWeight  = float(m[1])
+            except ValueError:
+                print(f"ERROR: {m[0]} weight '{m[1]}' not a float", file=sys.stderr)
+                return 0
+
+            weight += elementWeight * int(m[2])
 
         return weight
 
