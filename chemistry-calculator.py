@@ -50,6 +50,54 @@ class StoichiometryCalculator(object):
         self.loadPeriodicTable()
         self.prompt()
 
+        # each formula stores the following data
+        self.setMolecules([])
+        self.setFormula("")
+        self.setWeight(0.0)
+        self.setGrams(0.0)
+        self.setMoles(0.0)
+        self.setML(0.0)
+
+    # setters
+    def setMolecules(self, m: list):
+        self.molecules = m
+
+    def setFormula(self, f: str):
+        self.formula = f
+
+    def setWeight(self, w: float):
+        self.weight = w
+
+    def setGrams(self, g: float):
+        self.grams = g
+
+    def setMoles(self, m: float):
+        self.moles = m
+
+    def setML(self, m: float):
+        self.ml = m
+
+    # getters
+    def getMolecules(self):
+        return self.molecules
+
+    def getFormula(self):
+        return self.formula
+
+    def getWeight(self):
+        return self.weight
+
+    def getGrams(self):
+        return self.grams
+
+    def getMoles(self):
+        return self.moles
+
+    def getML(self):
+        return self.ml
+
+
+    # other
     def loadPeriodicTable(self):
         with open("elements.csv", encoding="utf-8") as file:
             for row in csv.reader(file):
@@ -60,12 +108,6 @@ class StoichiometryCalculator(object):
         """ this is the main menu the user interfaces with """
 
         i = 0
-        molecules = []
-        formula = ""
-        weight = 0.0
-        grams = 0.0
-        moles = 0.0
-        molarity = 0.0
 
         while True:
 
@@ -79,71 +121,51 @@ class StoichiometryCalculator(object):
             if entry == "exit":
                 break
             elif entry == "m":
-                # use formula that has been entered already
-                if not formula:
+                # ensure valid formula has been provided
+                if not self.getFormula():
                     print("ERROR: formula not provided\n", file=sys.stderr)
                     continue
 
-                grams = self.molesToGrams(formula, weight)
+                self.molesToGrams()
             elif entry == "g":
-                # use formula that has been entered already
-
-                if not formula:
+                if not self.getFormula():
                     print("ERROR: formula not provided\n", file=sys.stderr)
                     continue
 
-                moles = self.gramsToMoles(formula, weight)
+                self.gramsToMoles()
             elif entry == "M":
-                # use formula tat has been entered already
-                if not formula:
+                if not self.getFormula():
                     print("ERROR: formula not provided\n", file=sys.stderr)
                     continue
 
-                # can't get molarity without moles
-                if moles != 0.0:
-                    req = input(f"use {moles} mol? (y or n) ")
-
-                    if req == "y":
-                        molarity = self.molesToML(formula, moles)
-                        continue
-                    elif req != "n":
-                        print(f"\nERROR: invalid option '{req}'\n", file=sys.stderr)
-                        continue
-
-                while True:
-                    req = input("enter moles: ")
-                    try:
-                        moles = float(req)
-                    except ValueError:
-                        print("\nERROR: not a float\n", file=sys.stderr)
-                        continue
-                    break
-
-                molarity = self.molesToML(formula, moles)
+                self.molesToML()
             else: # user entered a formula
-                molecules = self.breakDownFormula(entry)
+                self.setMolecules(self.breakDownFormula(entry))
 
-                if not molecules:
+                if not self.getMolecules():
                     continue
 
-                formula = entry
-                moles = 0.0
-                grams = 0.0
-                molarity = 0.0
-                weight = self.getWeight(molecules)
+                self.setFormula(entry)
+                self.setMoles(0.0)
+                self.setGrams(0.0)
+                self.setML(0.0)
+                self.calculateWeight()
 
-                if weight == 0:
-                    print(f"ERROR: could not calculate weight for {formula}\n", file=sys.stderr)
+                if self.getWeight() == 0:
+                    print(f"ERROR: could not calculate weight for {self.getFormula()}\n", file=sys.stderr)
+                    self.setFormula("")
+                    i = 0 # to reset prompt
                     continue
                 else:
-                    print(f"\tformula: {formula}, weight: {weight}\n")
-                    p = self.getPercentageComposition(molecules)
+                    print(f"\tformula: {self.getFormula()}, weight: {self.getWeight()}\n")
+                    self.calculatePercentageComposition(self.getMolecules())
                     print("")
 
             i += 1
 
 
     def elementExists(self, element: str):
+        """ check if element exists in *our* periodic table, which is populated from the elements.csv file """
 
         if not element in self.elements:
             print(f"ERROR: {element} not found\n", file=sys.stderr)
@@ -154,7 +176,8 @@ class StoichiometryCalculator(object):
 
     
     def breakDownFormula(self, formula: str):
-        """ this will return a list with the separate molecules in the provided formula """
+        """ this will return a list with the separate molecules (as lists themselves) in the provided formula """
+        """ or it will return an empty list upon error """
 
         molecule = []  # this will store info about the individual molecule
         molecules = [] # this will store the complete set of molecule information
@@ -174,7 +197,7 @@ class StoichiometryCalculator(object):
                         molecule = [ element, self.elements[element].getWeight(), subscript ]
                         molecules.append(molecule)
                     else:
-                        return 0
+                        return []
 
                 # new molecule
                 element = formula[i]
@@ -199,18 +222,18 @@ class StoichiometryCalculator(object):
             molecule = [ element, self.elements[element].getWeight(), subscript ]
             molecules.append(molecule)
         else:                                                                                                                                                                                 
-            return 0
+            return []
 
         return molecules
 
 
 
-    def getWeight(self, molecules: list):
-        """ calculate the total weight of the formula in grams """
+    def calculateWeight(self):
+        """ calculate the total weight of the current formula """
         
         weight = 0
 
-        for m in molecules:
+        for m in self.molecules:
             try:
                elementWeight  = float(m[1])
             except ValueError:
@@ -219,67 +242,88 @@ class StoichiometryCalculator(object):
 
             weight += elementWeight * int(m[2])
 
-        return weight
+        self.setWeight(weight)
 
 
 
-    def getPercentageComposition(self, molecules: list):
+    def calculatePercentageComposition(self, molecules: list):
         """ calculate the percentage composition of each element in the formula """
         
-        totalWeight = self.getWeight(molecules)
-
         for m in molecules:
-            weight = float(m[1]) * int(m[2])
+            moleculeWeight = float(m[1]) * int(m[2])
+            percentage = moleculeWeight / self.getWeight() * 100
+
             s = int(m[2]) if int(m[2]) > 1 else ""
-            print(f"\t{m[0]}{s}: {weight}g / {totalWeight}g * 100 = {weight / totalWeight * 100} %")
+            print(f"\t{m[0]}{s}: {moleculeWeight}g / {self.getWeight()}g * 100 = {percentage} %")
 
             # store percentage composition for other uses
-            m.append(weight / totalWeight)
+            m.append(moleculeWeight / self.getWeight())
 
 
-    def molesToGrams(self, formula: str, weight: float):
+    def requestValue(self, value: float, unit: str):
+        """ used to check if user wants to use current value in moles/mL/grams or set a new value """
+
+        req = ""
+
+        if value != 0:
+            while True:
+                req = input(f"use {value} {unit}? (y or n) ")
+
+                if req != "n" and req != "y":
+                    print(f"\nERROR: invalid option '{req}'\n", file=sys.stderr)
+                    continue
+                break
+
+        if req == "n" or value == 0:
+            while True:
+                req = input(f"enter {unit}: ")
+
+                try:
+                    newValue = float(req)
+                except ValueError:
+                    print("\nERROR: not a float\n", file=sys.stderr)
+                    continue
+                return newValue
+
+        return value
+
+
+    def molesToGrams(self):
         """ converts a certain amount of moles to grams """
+    
+        self.setMoles(self.requestValue(self.getMoles(), "mol"))
+        self.setGrams(float(self.getWeight() * self.getMoles()))
 
-        req = input("Enter moles: ")
-
-        try:
-            moles = float(req)
-        except ValueError:
-            print("ERROR: not a float\n", file=sys.stderr)
-            return 0
-
-        print(f"\n\t{moles} mol {formula} = {weight * moles} g\n")
-        return float(weight * moles)
+        print(f"\n\t{self.getMoles()} mol {self.getFormula()} = {self.getGrams()} g\n")
 
 
-    def gramsToMoles(self, formula: str, weight: float):
+    def gramsToMoles(self):
         """ converts a certain amount of grams to moles """
 
-        req = input("Enter grams: ")
+        self.setGrams(self.requestValue(self.getGrams(), "g"))
+        self.setMoles(float(self.getGrams() / self.getWeight()))
 
-        try:
-            grams = float(req)
-        except ValueError:
-            print("ERROR: not a float\n", file=sys.stderr)
-            return 0
-
-        print(f"\n\t{grams} g {formula} = {grams / weight} mol\n")
-        return float(grams / weight)
+        print(f"\n\t{self.getGrams()} g {self.getFormula()} = {self.getMoles()} mol\n")
 
 
-    def molesToML(self, formula: str, moles: float):
+    def molesToML(self):
         """ converts given moles to a liquid molarity """
 
-        req = input("M of solution (moles/1000ml): ")
+        self.setMoles(self.requestValue(self.getMoles(), "mol"))
 
-        try:
-            molarity = float(req)
-        except ValueError:
-            print("ERROR: not a float\n", file=sys.stderr)
-            return 0
+        while True:
+            req = input("M of solution (moles/1000ml): ")
 
-        print(f"\n\t{moles} mol {formula} of {molarity} M solution = {moles * 1000 / molarity} mL\n")
-        return float(moles * 1000 / molarity)
+            try:
+                molarity = float(req)
+            except ValueError:
+                print("\nERROR: not a float\n", file=sys.stderr)
+                continue
+            break
+
+
+        self.setML(float(self.getMoles() * 1000 / molarity))
+        print(f"\n\t{self.getMoles()} mol {self.getFormula()} of {molarity} M solution = {self.getML()} mL\n")
         
 
 
