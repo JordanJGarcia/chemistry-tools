@@ -46,11 +46,18 @@ class StoichiometryCalculator(object):
     """ object representing the periodic table of elements """
 
     def __init__(self):
-        self.elements = {} # dict holding 118 elements
+        # store elements in various dictionaries to make it easy
+        # to search by name/symbol/number/weight
+        self.elementsByName = {}
+        self.elementsBySymbol = {} 
+        self.elementsByNumber = {}
+        self.elementsByWeight = {}
+
         self.loadPeriodicTable()
+        self.resetData()
         self.prompt()
 
-        # each formula stores the following data
+    def resetData(self):
         self.setMolecules([])
         self.setFormula("")
         self.setWeight(0.0)
@@ -101,25 +108,44 @@ class StoichiometryCalculator(object):
     def loadPeriodicTable(self):
         with open("elements.csv", encoding="utf-8") as file:
             for row in csv.reader(file):
-                self.elements[row[1]] = Element(row)
+                self.elementsByName[row[0]] = Element(row)
+                self.elementsBySymbol[row[1]] = Element(row)
+                self.elementsByNumber[row[2]] = Element(row)
+                self.elementsByWeight[row[3]] = Element(row)
 
+
+    def displayMenu(self, showFullMenu: bool):
+        shortMenu = "entry: "
+        fullMenu = """Enter a formula at any time, or choose from the following:
+
+        d) display full menu
+        g) grams to moles
+        m) moles to grams
+        M) moles to ML
+        s) search
+        x) exit, or type "exit"
+
+entry: """
+
+        return input(fullMenu) if showFullMenu else input(shortMenu)
     
+
     def prompt(self):
         """ this is the main menu the user interfaces with """
 
-        i = 0
+        fullMenu = True
 
         while True:
 
-            if i == 0:
-                entry = input("Enter formula: ")
-            else:
-                entry = input("Enter new formula, or (m) moles to grams (g) grams to moles (M) moles to mL: ")
+            entry = self.displayMenu(fullMenu)
 
+            fullMenu = False
             print("")
             
-            if entry == "exit":
+            if entry == "exit" or entry == "x":
                 break
+            elif entry == "d":
+                fullMenu = True
             elif entry == "m":
                 # ensure valid formula has been provided
                 if not self.getFormula():
@@ -139,6 +165,8 @@ class StoichiometryCalculator(object):
                     continue
 
                 self.molesToML()
+            elif entry == "s":
+                self.search()
             else: # user entered a formula
                 self.setMolecules(self.breakDownFormula(entry))
 
@@ -146,32 +174,25 @@ class StoichiometryCalculator(object):
                     continue
 
                 self.setFormula(entry)
-                self.setMoles(0.0)
-                self.setGrams(0.0)
-                self.setML(0.0)
                 self.calculateWeight()
 
                 if self.getWeight() == 0:
                     print(f"ERROR: could not calculate weight for {self.getFormula()}\n", file=sys.stderr)
-                    self.setFormula("")
-                    i = 0 # to reset prompt
-                    continue
+                    self.resetData()
                 else:
                     print(f"\tformula: {self.getFormula()}, weight: {self.getWeight()}\n")
                     self.calculatePercentageComposition(self.getMolecules())
                     print("")
 
-            i += 1
-
 
     def elementExists(self, element: str):
         """ check if element exists in *our* periodic table, which is populated from the elements.csv file """
 
-        if not element in self.elements:
+        if not element in self.elementsBySymbol:
             print(f"ERROR: {element} not found\n", file=sys.stderr)
             return 0
 
-        self.elements[element].printElement()
+        self.elementsBySymbol[element].printElement()
         return 1
 
     
@@ -194,7 +215,7 @@ class StoichiometryCalculator(object):
                 # store previous molecule
                 if element:
                     if self.elementExists(element):
-                        molecule = [ element, self.elements[element].getWeight(), subscript ]
+                        molecule = [ element, self.elementsBySymbol[element].getWeight(), subscript ]
                         molecules.append(molecule)
                     else:
                         return []
@@ -219,7 +240,7 @@ class StoichiometryCalculator(object):
 
         # store last molecule
         if self.elementExists(element):
-            molecule = [ element, self.elements[element].getWeight(), subscript ]
+            molecule = [ element, self.elementsBySymbol[element].getWeight(), subscript ]
             molecules.append(molecule)
         else:                                                                                                                                                                                 
             return []
@@ -245,7 +266,6 @@ class StoichiometryCalculator(object):
         self.setWeight(weight)
 
 
-
     def calculatePercentageComposition(self, molecules: list):
         """ calculate the percentage composition of each element in the formula """
         
@@ -260,11 +280,12 @@ class StoichiometryCalculator(object):
             m.append(moleculeWeight / self.getWeight())
 
 
-    def requestValue(self, value: float, unit: str):
+    def request(self, value: float, unit: str):
         """ used to check if user wants to use current value in moles/mL/grams or set a new value """
 
         req = ""
 
+        # if value isn't empty, ask user if they want to use it
         if value != 0:
             while True:
                 req = input(f"use {value} {unit}? (y or n) ")
@@ -274,6 +295,7 @@ class StoichiometryCalculator(object):
                     continue
                 break
 
+        # user entered 'n', or value is empty
         if req == "n" or value == 0:
             while True:
                 req = input(f"enter {unit}: ")
@@ -285,13 +307,14 @@ class StoichiometryCalculator(object):
                     continue
                 return newValue
 
+        # user entered 'y', so use current value
         return value
 
 
     def molesToGrams(self):
         """ converts a certain amount of moles to grams """
     
-        self.setMoles(self.requestValue(self.getMoles(), "mol"))
+        self.setMoles(self.request(self.getMoles(), "mol"))
         self.setGrams(float(self.getWeight() * self.getMoles()))
 
         print(f"\n\t{self.getMoles()} mol {self.getFormula()} = {self.getGrams()} g\n")
@@ -300,7 +323,7 @@ class StoichiometryCalculator(object):
     def gramsToMoles(self):
         """ converts a certain amount of grams to moles """
 
-        self.setGrams(self.requestValue(self.getGrams(), "g"))
+        self.setGrams(self.request(self.getGrams(), "g"))
         self.setMoles(float(self.getGrams() / self.getWeight()))
 
         print(f"\n\t{self.getGrams()} g {self.getFormula()} = {self.getMoles()} mol\n")
@@ -309,7 +332,7 @@ class StoichiometryCalculator(object):
     def molesToML(self):
         """ converts given moles to a liquid molarity """
 
-        self.setMoles(self.requestValue(self.getMoles(), "mol"))
+        self.setMoles(self.request(self.getMoles(), "mol"))
 
         while True:
             req = input("M of solution (moles/1000ml): ")
@@ -324,7 +347,27 @@ class StoichiometryCalculator(object):
 
         self.setML(float(self.getMoles() * 1000 / molarity))
         print(f"\n\t{self.getMoles()} mol {self.getFormula()} of {molarity} M solution = {self.getML()} mL\n")
-        
+
+
+    def search(self):
+        """ will search for an element by specified criteria and print its data """
+
+        key = input("\nsearch by number, weight or symbol: ")
+
+        print("")
+        if key in self.elementsByName:
+            self.elementsByName[key].printElement()
+        elif key in self.elementsBySymbol:
+            self.elementsBySymbol[key].printElement()
+        elif key in self.elementsByNumber:
+            self.elementsByNumber[key].printElement()
+        elif key in self.elementsByWeight:
+            self.elementsByWeight[key].printElement()
+        else:
+            print(f"ERROR: key '{key}' not found\n", file=sys.stderr)
+
+        return
+       
 
 
 if __name__ == "__main__":
