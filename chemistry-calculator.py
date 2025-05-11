@@ -3,9 +3,185 @@
 import csv
 import sys
 
+
+# global funcs
+
+# c => class
+# f => function 
+# m => message
+def error(c: str, f: str, m: str):
+    print(f"ERROR -  {c}.{f}(): {m}\n", file=sys.stderr)
+
+# c => class
+# f => function 
+# m => message
+# code => exit code
+def error_exit(c: str, f: str, m: str, code: int):
+    print(f"ERROR -  {c}.{f}(): {m}\n", file=sys.stderr)
+    sys.exit(code)
+
+
+# valid subshell types
+electron_spins = {0: "\u2191", 1: "\u2193"}
+subshell_types = ['s', 'p', 'd', 'f']
+orbital_amount = {}
+
+amount = 1
+for t in subshell_types:
+    orbital_amount[t] = amount
+    amount += 2
+
+
+# object oriented stuff
+
+class Electron(object):
+    """ representing an electron, duh """
+
+    def __init__(self, spin: int):
+        self.set_spin(spin)
+
+
+    def set_spin(self, spin: int):
+
+        if spin not in electron_spins:
+            error_exit("Electron", "set_spin", f"invalid spin {spin}, must be one of {electron_spins}", 1)
+
+        self.spin = spin
+
+
+    def __repr__(self, ):
+        return electron_spins[self.spin]
+
+        
+
+
+class Orbital(object):
+    """ magnetic quantum number """
+    """ represents orbitals within a subshell """
+
+    # t => type of subshell these orbitals are in (s,p,d,f)
+    def __init__(self, t: str):
+
+        if t not in subshell_types:
+            error_exit("Orbital", "__init__", f"invalid subshell type {t}", 1)
+
+        self.type = t
+        self.electrons = []
+        self.count = orbital_amount[self.type]
+
+        # add as many empty orbitals as needed for subshell type
+        for i in range(0, self.count):
+            # None will represent no electron
+            # -0.5 will be one spin
+            # 0.5 will be the other
+            self.electrons.append([None,None])
+            
+
+   
+    # ml => magnetic quantum number
+    # ms => spin quantum number, but for this its only 'up' or 'down'
+    def update_electron(self, ml: int, ms: int):
+
+        max_ml = orbital_amount[self.type]
+
+        # valid ml is -l to +l
+        if ml > max_ml or ml < 0:
+            error_exit("Orbital", "update_electron", f"invalid magnetic quantum number {ml}, valid values are -{max_ml} to +{max_ml}", 1)
+
+        # valid ms is -0.5 or +0.5
+        if ms not in electron_spins:
+            error_exit("Orbital", "update_electron", f"invalid spin quantum number {ms} valid values are {list(electron_spins.keys())}", 1)
+
+        self.electrons[ml][ms] = Electron(ms)
+        
+
+
+
+    def print_orbitals(self):
+
+        print(*self.electrons)
+        #for e in self.electrons:
+            #print(f"\t\t{e}", end=' ')
+
+
+
+class Subshell(object):
+    """ aziumuthal quantum number (l) """
+    """ represents a subshell within a shell """
+
+    # t => type of subshell (s,p,d,f)
+    def __init__(self, t: str):
+
+        if t not in subshell_types:
+            error_exit("Subshell", "__init__", f"invalid subshell type {t}", 1)
+
+        self.type = t
+        self.orbitals = Orbital(t)
+
+    
+    def print_subshell(self, n=''):
+        print(f"    {n}{self.type}: ", end='')
+        self.orbitals.print_orbitals()
+
+
+class Shell(object):
+    """ principal quantum number (n) """
+    """ represents a shell of an atom """
+
+    # n => the principal quantum number
+    def __init__(self, n: int):
+
+        # just to be safe, exit gracefully
+        if len(subshell_types) != 4:
+            error_exit("Shell", "__init__", f"subshell types are invalid {subshell_types}, check code", 1)
+
+        # although theoretically this number can go to infinity
+        # there are only 7 periods on the periodic table
+        if n > 7:
+            error_exit("Shell", "__init__", f"invalid principal quantum number {n}", 1)
+
+        self.n = n
+        self.subshells = {}
+
+        # each shell has s subshell
+        self.add_subshell(subshell_types[0])
+
+        # shells 2 and up have p subshell
+        if n > 1:
+            self.add_subshell(subshell_types[1])
+
+        # shells 4 and above have d subshell
+        if n > 3:
+            self.add_subshell(subshell_types[2])
+
+        # shells 6 and above have  f subshell
+        if n > 5:
+            self.add_subshell(subshell_types[3])
+
+                        
+    
+    # t => subshell type
+    def add_subshell(self, t: str):
+
+        if t not in subshell_types:
+            error_exit("Shell", "add_subshell", f"invalid subshell type {t}", 1)
+
+        self.subshells[t] = Subshell(t)
+        
+
+    def print_shell(self):
+
+        print(f"shell {self.n}\n")
+        for s in self.subshells.values():
+            s.print_subshell(self.n)
+
+        print("")
+
+
 class Element(object):
     """ object representing an element in the periodic table """
 
+    #def __init__(self, info: list, protons: int, neutrons: int, electrons: int):
     def __init__(self, info: list):
         assert len(info) == 4
 
@@ -25,6 +201,18 @@ class Element(object):
 
     def setWeight(self, w: str):
         self.weight = w
+
+    def setGroup(self, g: str):
+        self.group = g
+
+    def setPeriod(self, p: str):
+        self.period = p
+
+    def setOrbitalDiagram(self, n: int, l: int, ml: int, ms: float):
+        self.pqm = n    # principal quantum number
+        self.aqm = l    # azimuthal quantum number
+        self.mqm = ml   # magnetic quantum number
+        self.sqm = ms   # spin quantum number
 
     def getName(self):
         return self.name
@@ -371,4 +559,18 @@ entry: """
 
 
 if __name__ == "__main__":
-    calc = StoichiometryCalculator()
+    #calc = StoichiometryCalculator()
+
+    s = {}
+
+    for i in range(1,9):
+        s[i] = Shell(i)
+
+        for ss in s[i].subshells.values():
+            for j in range(0, ss.orbitals.count):
+                ss.orbitals.update_electron(j, 0)
+                ss.orbitals.update_electron(j, 1)
+
+        s[i].print_shell()
+
+
