@@ -10,14 +10,14 @@ import sys
 # f => function 
 # m => message
 def error(c: str, f: str, m: str):
-    print(f"ERROR -  {c}.{f}(): {m}\n", file=sys.stderr)
+    print(f"ERROR - {c}.{f}(): {m}\n", file=sys.stderr)
 
 # c => class
 # f => function 
 # m => message
 # code => exit code
 def error_exit(c: str, f: str, m: str, code: int):
-    print(f"ERROR -  {c}.{f}(): {m}\n", file=sys.stderr)
+    print(f"ERROR - {c}.{f}(): {m}\n", file=sys.stderr)
     sys.exit(code)
 
 
@@ -208,12 +208,6 @@ class Element(object):
     def setPeriod(self, p: str):
         self.period = p
 
-    def setOrbitalDiagram(self, n: int, l: int, ml: int, ms: float):
-        self.pqm = n    # principal quantum number
-        self.aqm = l    # azimuthal quantum number
-        self.mqm = ml   # magnetic quantum number
-        self.sqm = ms   # spin quantum number
-
     def getName(self):
         return self.name
 
@@ -337,19 +331,19 @@ entry: """
             elif entry == "m":
                 # ensure valid formula has been provided
                 if not self.getFormula():
-                    print("ERROR: formula not provided\n", file=sys.stderr)
+                    error("StoichiometryCalculator", "prompt", "formula not provided")
                     continue
 
                 self.molesToGrams()
             elif entry == "g":
                 if not self.getFormula():
-                    print("ERROR: formula not provided\n", file=sys.stderr)
+                    error("StoichiometryCalculator", "prompt", "formula not provided")
                     continue
 
                 self.gramsToMoles()
             elif entry == "M":
                 if not self.getFormula():
-                    print("ERROR: formula not provided\n", file=sys.stderr)
+                    error("StoichiometryCalculator", "prompt", "formula not provided")
                     continue
 
                 self.molesToML()
@@ -365,7 +359,7 @@ entry: """
                 self.calculateWeight()
 
                 if self.getWeight() == 0:
-                    print(f"ERROR: could not calculate weight for {self.getFormula()}\n", file=sys.stderr)
+                    error("StoichiometryCalculator", "prompt", f"could not calculate weight for {self.getFormula()}")
                     self.resetData()
                 else:
                     print(f"\tformula: {self.getFormula()}, weight: {self.getWeight()}\n")
@@ -377,7 +371,7 @@ entry: """
         """ check if element exists in *our* periodic table, which is populated from the elements.csv file """
 
         if not element in self.elementsBySymbol:
-            print(f"ERROR: {element} not found\n", file=sys.stderr)
+            error("StoichiometryCalculator", "elementExists", f"{element} not found")
             return 0
 
         self.elementsBySymbol[element].printElement()
@@ -446,7 +440,7 @@ entry: """
             try:
                elementWeight  = float(m[1])
             except ValueError:
-                print(f"ERROR: {m[0]} weight '{m[1]}' not a float", file=sys.stderr)
+                error("StoichiometryCalculator", "calculateWeight", f"{m[0]} weight '{m[1]}' not a float")
                 return 0
 
             weight += elementWeight * int(m[2])
@@ -479,7 +473,7 @@ entry: """
                 req = input(f"use {value} {unit}? (y or n) ")
 
                 if req != "n" and req != "y":
-                    print(f"\nERROR: invalid option '{req}'\n", file=sys.stderr)
+                    error("StoichiometryCalculator", "request", f"invalid option {req}")
                     continue
                 break
 
@@ -491,7 +485,7 @@ entry: """
                 try:
                     newValue = float(req)
                 except ValueError:
-                    print("\nERROR: not a float\n", file=sys.stderr)
+                    error("StoichiometryCalculator", "request", f"not a float")
                     continue
                 return newValue
 
@@ -528,7 +522,7 @@ entry: """
             try:
                 molarity = float(req)
             except ValueError:
-                print("\nERROR: not a float\n", file=sys.stderr)
+                error("StoichiometryCalculator", "molesToML", f"not a float")
                 continue
             break
 
@@ -552,25 +546,25 @@ entry: """
         elif key in self.elementsByWeight:
             self.elementsByWeight[key].printElement()
         else:
-            print(f"ERROR: key '{key}' not found\n", file=sys.stderr)
+            error("StoichiometryCalculator", "search", f"key '{key}' not found")
 
         return
        
 
 
 if __name__ == "__main__":
-    #calc = StoichiometryCalculator()
+    calc = StoichiometryCalculator()
 
-    s = {}
-
-    for i in range(1,9):
-        s[i] = Shell(i)
-
-        for ss in s[i].subshells.values():
-            for j in range(0, ss.orbitals.count):
-                ss.orbitals.update_electron(j, 0)
-                ss.orbitals.update_electron(j, 1)
-
-        s[i].print_shell()
+#    s = {}
+#
+#    for i in range(1,9):
+#        s[i] = Shell(i)
+#
+#        for ss in s[i].subshells.values():
+#            for j in range(0, ss.orbitals.count):
+#                ss.orbitals.update_electron(j, 0)
+#                ss.orbitals.update_electron(j, 1)
+#
+#        s[i].print_shell()
 
 
