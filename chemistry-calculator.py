@@ -5,7 +5,11 @@ import sys
 import math
 
 
-# global funcs
+#####################################
+#                                   #
+#             globals               #
+#                                   #
+#####################################
 
 # c => class
 # f => function 
@@ -13,16 +17,12 @@ import math
 def error(c: str, f: str, m: str):
     print(f"ERROR - {c}.{f}(): {m}\n", file=sys.stderr)
 
-# c => class
-# f => function 
-# m => message
 # code => exit code
 def error_exit(c: str, f: str, m: str, code: int):
     print(f"ERROR - {c}.{f}(): {m}\n", file=sys.stderr)
     sys.exit(code)
 
 
-# valid subshell types
 electron_spins = {0: "\u2191", 1: "\u2193"}
 subshell_types = ['s', 'p', 'd', 'f']
 orbital_amount = {}
@@ -33,7 +33,12 @@ for t in subshell_types:
     amount += 2
 
 
-# object oriented stuff
+
+#####################################
+#                                   #
+#             classes               #
+#                                   #
+#####################################
 
 class Electron(object):
     """ representing an electron, duh """
@@ -55,7 +60,7 @@ class Electron(object):
         
 class Orbital(object):
     """ magnetic quantum number """
-    """ represents orbitals within a subshell """
+    """ represents an orbital within a subshell """
 
     def __init__(self):
 
@@ -263,8 +268,65 @@ class Molecule(object):
 
     def __init__(self):
         self.elements = {} # this will be a dict of dicts
-        self.weight = 0
-        self.formula = ""
+
+
+    # formula => molecular formula to use
+    # elmenents => dict of elements with their symbols as keys
+    def build_molecule(self, formula: str, elements: dict):
+        """ this will build the Molecule object based on the supplied formula """
+
+        if not elements or not isinstance(list(elements.values())[0], Element):
+            error("Molecule", "__init__", f"expected dict of Element objects, got {type(elements)}")
+            return 0
+
+        self.elements.clear()
+
+        symbol = ""
+        subscript = "1"
+        i = 0
+
+        # iterate through formula
+        while i < len(formula):
+            # start of element
+            if formula[i].isupper():
+                # store previous molecule
+                if symbol:
+                    if not symbol in elements:
+                        error("StoichiometryCalculator", "build_molecule", f"{symbol} not found")
+                        return 0
+
+                    elements[symbol].print_element()
+                    self.add_element(elements[symbol], subscript)
+
+                # new molecule
+                symbol = formula[i]
+                subscript = "1"
+
+            # 2 character element name
+            if formula[i].islower():
+                symbol += formula[i]
+
+            # subscript
+            if i != 0 and formula[i].isdigit():
+                subscript = formula[i]
+
+                while i + 1 < len(formula) and formula[i + 1].isdigit():
+                    subscript += formula[i + 1]
+                    i += 1
+
+            i += 1
+
+        # store last molecule
+        if symbol:
+            if not symbol in elements:
+                error("StoichiometryCalculator", "build_molecule", f"{symbol} not found")
+                return 0
+                
+            elements[symbol].print_element()
+            self.add_element(elements[symbol], subscript)
+
+        return 1
+
 
     def add_element(self, element: Element, count: int):
         # elements[<Element object>] = { count, percentage }
@@ -274,14 +336,17 @@ class Molecule(object):
         self.calculate_weight()
         self.calculate_percentage_compositions()
 
+
     def get_weight(self):
         return self.weight
+
 
     def calculate_weight(self):
         self.weight = 0
 
         for e, d in self.elements.items():
             self.weight += (e.get_weight() * int(d['count']))
+
 
     def calculate_percentage_compositions(self):
         """ calculate the percentage composition of an element in the formula """
@@ -408,9 +473,7 @@ entry: """
         full_menu = True
 
         while True:
-
             entry = self.display_menu(full_menu)
-
             full_menu = False
             print("")
             
@@ -439,76 +502,12 @@ entry: """
             elif entry == "s":
                 self.search()
             else: # user entered a formula
-                self.molecule = Molecule()
-                
-                if not self.break_down_formula(entry):
-                    error("StoichiometryCalculator", "prompt", f"unable to break down formula {entry}")
+                if not self.molecule.build_molecule(entry, self.elements_by_symbol):
+                    error("StoichiometryCalculator", "prompt", f"could not build molecule {entry}")
                     continue
 
                 self.set_formula(entry)
-                self.molecule.calculate_percentage_compositions()
                 print(f"\t{self.molecule}\n")
-
-
-    def element_exists(self, symbol: str):
-        """ check if element exists in *our* periodic table, which is populated from the elements.csv file """
-
-        if not symbol in self.elements_by_symbol:
-            error("StoichiometryCalculator", "element_exists", f"{symbol} not found")
-            return 0
-
-        self.elements_by_symbol[symbol].print_element()
-        return 1
-
-    
-    def break_down_formula(self, formula: str):
-        """ this will return a molecule object with the separate elements and their counts """
-        """ or it will return an empty list upon error """
-
-        element = ""
-        subscript = "1"
-
-        i = 0
-
-        while i < len(formula):
-
-            # start of element
-            if formula[i].isupper():
-
-                # store previous molecule
-                if element:
-                    if self.element_exists(element):
-                        self.molecule.add_element(self.elements_by_symbol[element], subscript)
-                    else:
-                        self.molecule = Molecule()
-                        return 0
-
-                # new molecule
-                element = formula[i]
-                subscript = "1"
-
-            # 2 character element name
-            if formula[i].islower():
-                element += formula[i]
-
-            # subscript
-            if i != 0 and formula[i].isdigit():
-                subscript = formula[i]
-                
-                while i + 1 < len(formula) and formula[i + 1].isdigit():
-                    subscript += formula[i + 1]
-                    i += 1
-
-            i += 1
-
-        # store last molecule
-        if self.element_exists(element):
-            self.molecule.add_element(self.elements_by_symbol[element], subscript)
-        else:                                                                                                                                                                                 
-            self.molecule = Molecule()
-            return 0
-
-        return 1
 
 
     def request(self, value: float, unit: str):
