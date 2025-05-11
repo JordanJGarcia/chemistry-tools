@@ -42,7 +42,6 @@ class Electron(object):
 
 
     def set_spin(self, spin: int):
-
         if spin not in electron_spins:
             error_exit("Electron", "set_spin", f"invalid spin {spin}, must be one of {electron_spins}", 1)
 
@@ -59,49 +58,31 @@ class Orbital(object):
     """ magnetic quantum number """
     """ represents orbitals within a subshell """
 
-    # t => type of subshell these orbitals are in (s,p,d,f)
-    def __init__(self, t: str):
+    def __init__(self):
 
-        if t not in subshell_types:
-            error_exit("Orbital", "__init__", f"invalid subshell type {t}", 1)
-
-        self.type = t
-        self.electrons = []
-        self.count = orbital_amount[self.type]
-
-        # add as many empty orbitals as needed for subshell type
-        for i in range(0, self.count):
-            # None will represent no electron
-            # -0.5 will be one spin
-            # 0.5 will be the other
-            self.electrons.append([None,None])
-            
+        # each orbital has up to 2 electrons
+        # None will be no electron
+        # 0 will be one spin
+        # 1 will be the other
+        self.electrons = [None, None]
 
    
-    # ml => magnetic quantum number
-    # ms => spin quantum number, but for this its only 'up' or 'down'
-    def update_electron(self, ml: int, ms: int):
+    def set_electron(self, spin: int):
+        if spin not in electron_spins:
+            error_exit("Orbital", "set_electron", f"invalid spin {spin}", 1)
 
-        max_ml = orbital_amount[self.type]
-
-        # valid ml is -l to +l
-        if ml > max_ml or ml < 0:
-            error_exit("Orbital", "update_electron", f"invalid magnetic quantum number {ml}, valid values are -{max_ml} to +{max_ml}", 1)
-
-        # valid ms is -0.5 or +0.5
-        if ms not in electron_spins:
-            error_exit("Orbital", "update_electron", f"invalid spin quantum number {ms} valid values are {list(electron_spins.keys())}", 1)
-
-        self.electrons[ml][ms] = Electron(ms)
-        
+        self.electrons[spin] = Electron(spin)
 
 
+    def unset_electron(self, spin: int):
+        if spin not in electron_spins:
+            error_exit("Orbital", "set_electron", f"invalid spin {spin}", 1)
 
-    def print_orbitals(self):
+        self.electrons[spin] = None
 
-        print(*self.electrons)
-        #for e in self.electrons:
-            #print(f"\t\t{e}", end=' ')
+
+    def print_orbital(self):
+        print(self.electrons, end=' ')
 
 
 
@@ -116,12 +97,42 @@ class Subshell(object):
             error_exit("Subshell", "__init__", f"invalid subshell type {t}", 1)
 
         self.type = t
-        self.orbitals = Orbital(t)
+        self.orbitals = []
+        self.add_orbitals()
+
+    
+    def add_orbitals(self):
+        count = orbital_amount[self.type]
+
+        # add as many empty orbitals as needed for subshell type
+        for i in range(0, count):
+            self.orbitals.append(Orbital())
+
+
+    # orbital => magnetic quantum number (ml)
+    # spin    => spin quantum number (ms)
+    def update_electron(self, orbital: int, spin: int):
+
+        max_orbital = orbital_amount[self.type]
+
+        # valid ml is 0 to l-1
+        if orbital >= max_orbital or orbital < 0:
+            error_exit("Orbital", "update_electron", f"invalid orbital {orbital}, valid values are 0 to {max_orbital - 1}", 1)
+
+        # valid ms is 0 or 1
+        if spin not in electron_spins:
+            error_exit("Orbital", "update_electron", f"invalid electron spin {spin} valid values are {list(electron_spins.keys())}", 1)
+
+        self.orbitals[orbital].set_electron(spin)
 
     
     def print_subshell(self, n=''):
         print(f"    {n}{self.type}: ", end='')
-        self.orbitals.print_orbitals()
+
+        for o in self.orbitals:
+            o.print_orbital()
+
+        print("")
 
 
 class Shell(object):
@@ -553,18 +564,18 @@ entry: """
 
 
 if __name__ == "__main__":
-    calc = StoichiometryCalculator()
+#    calc = StoichiometryCalculator()
 
-#    s = {}
-#
-#    for i in range(1,9):
-#        s[i] = Shell(i)
-#
-#        for ss in s[i].subshells.values():
-#            for j in range(0, ss.orbitals.count):
-#                ss.orbitals.update_electron(j, 0)
-#                ss.orbitals.update_electron(j, 1)
-#
-#        s[i].print_shell()
+    s = {}
+
+    for i in range(1,9):
+        s[i] = Shell(i)
+
+        for ss in s[i].subshells.values():
+            for j in range(0, len(ss.orbitals)):
+                ss.update_electron(j, 0)
+                ss.update_electron(j, 1)
+
+        s[i].print_shell()
 
 
