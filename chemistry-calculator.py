@@ -2,6 +2,7 @@
 
 import csv
 import sys
+import math
 
 
 # global funcs
@@ -52,8 +53,6 @@ class Electron(object):
         return electron_spins[self.spin]
 
         
-
-
 class Orbital(object):
     """ magnetic quantum number """
     """ represents orbitals within a subshell """
@@ -83,7 +82,6 @@ class Orbital(object):
 
     def print_orbital(self):
         print(self.electrons, end=' ')
-
 
 
 class Subshell(object):
@@ -192,47 +190,134 @@ class Shell(object):
 class Element(object):
     """ object representing an element in the periodic table """
 
-    #def __init__(self, info: list, protons: int, neutrons: int, electrons: int):
     def __init__(self, info: list):
         assert len(info) == 4
 
-        self.setNumber(int(info[2]))
-        self.setName(str(info[0]))
-        self.setSymbol(str(info[1]))
-        self.setWeight(str(info[3]))
+        self.set_name(str(info[0]))
+        self.set_symbol(str(info[1]))
+        self.set_weight(str(info[3]))
 
-    def setName(self, n: str):
+        self.set_protons(int(info[2]))
+        self.set_neutrons(round(self.get_weight()) - self.get_protons())
+        self.set_electrons(self.get_protons())
+
+
+    def set_name(self, n: str):
         self.name = n
 
-    def setSymbol(self, s: str):
+    def set_symbol(self, s: str):
         self.symbol = s
 
-    def setNumber(self, n: int):
-        self.number = n
+    def set_weight(self, w: str):
+        self.weight = float(w)
 
-    def setWeight(self, w: str):
-        self.weight = w
+    def set_protons(self, n: int):
+        self.protons = n
 
-    def setGroup(self, g: str):
+    def set_neutrons(self, n: int):
+        self.neutrons = n
+
+    def set_electrons(self, n: int):
+        self.electrons = n
+
+    def set_group(self, g: str):
         self.group = g
 
-    def setPeriod(self, p: str):
+    def set_period(self, p: str):
         self.period = p
 
-    def getName(self):
+    def get_name(self):
         return self.name
 
-    def getSymbol(self):
+    def get_symbol(self):
         return self.symbol
 
-    def getNumber(self):
-        return self.number
-
-    def getWeight(self):
+    def get_weight(self):
         return self.weight
 
-    def printElement(self):
-        print(f"\tNumber: {self.number}\n\tName:   {self.name}\n\tSymbol: {self.symbol}\n\tWeight: {self.weight}\n")
+    def get_protons(self):
+        return self.protons
+
+    def get_neutrons(self):
+        return self.neutrons
+
+    def get_electrons(self):
+        return self.electrons
+
+    def print_element(self):
+        info = [
+            f"\tElement:    {self.get_name()}",
+            f"\tSymbol:     {self.get_symbol()}",
+            f"\tWeight:     {self.get_weight()}",
+            f"\tP:          {self.get_protons()}",
+            f"\tN:          {self.get_neutrons()}",
+            f"\tE:          {self.get_electrons()}\n"
+        ]
+
+        for s in info:
+            print(s)
+
+
+class Molecule(object):
+    """ represents a Molecule """
+
+    def __init__(self):
+        self.elements = {} # this will be a dict of dicts
+        self.weight = 0
+        self.formula = ""
+
+    def add_element(self, element: Element, count: int):
+        # elements[<Element object>] = { count, percentage }
+        self.elements[element] = {'count': count, 'percentage': 0}
+
+        self.calculate_formula()
+        self.calculate_weight()
+        self.calculate_percentage_compositions()
+
+    def get_weight(self):
+        return self.weight
+
+    def calculate_weight(self):
+        self.weight = 0
+
+        for e, d in self.elements.items():
+            self.weight += (e.get_weight() * int(d['count']))
+
+    def calculate_percentage_compositions(self):
+        """ calculate the percentage composition of an element in the formula """
+
+        for e, d in self.elements.items():
+            weight = float(e.get_weight() * int(d['count']))
+            d['percentage'] = weight / self.get_weight() * 100
+
+
+    def calculate_formula(self):
+        f = ""
+        for e, d in self.elements.items():
+            f += e.get_symbol()
+            f += d['count'] if int(d['count']) > 1 else ""
+
+        self.formula = f
+
+
+    def __repr__(self):
+        s = f"formula:    {self.formula}"
+        s += "\n\tweight:     {:<10} g".format(self.get_weight())
+
+        percentage = {}
+        grams = {}
+
+        for e, d in self.elements.items():
+            count = d['count'] if int(d['count']) > 1 else ""
+            percentage[e.get_symbol() + str(count)] = str(d['percentage']) + " %"
+            grams[e.get_symbol() + str(count)] = "{:<10} g".format(e.get_weight() * int(d['count']))
+
+        for k, v in percentage.items():
+            s += "\n\t{:<12}{:<12}".format(k, grams[k])
+            t = f"({v})"
+            s += " {:<17}".format(t)
+
+        return s
 
 
 class StoichiometryCalculator(object):
@@ -241,75 +326,69 @@ class StoichiometryCalculator(object):
     def __init__(self):
         # store elements in various dictionaries to make it easy
         # to search by name/symbol/number/weight
-        self.elementsByName = {}
-        self.elementsBySymbol = {} 
-        self.elementsByNumber = {}
-        self.elementsByWeight = {}
+        self.elements_by_name = {}
+        self.elements_by_symbol = {} 
+        self.elements_by_number = {}
+        self.elements_by_weight = {}
 
-        self.loadPeriodicTable()
-        self.resetData()
+        self.molecule = Molecule()
+
+        self.load_elements()
+        self.reset_data()
         self.prompt()
 
-    def resetData(self):
-        self.setMolecules([])
-        self.setFormula("")
-        self.setWeight(0.0)
-        self.setGrams(0.0)
-        self.setMoles(0.0)
-        self.setML(0.0)
+    def reset_data(self):
+        self.set_formula("")
+        self.set_grams(0.0)
+        self.set_moles(0.0)
+        self.set_mL(0.0)
 
     # setters
-    def setMolecules(self, m: list):
-        self.molecules = m
-
-    def setFormula(self, f: str):
+    def set_formula(self, f: str):
         self.formula = f
 
-    def setWeight(self, w: float):
-        self.weight = w
-
-    def setGrams(self, g: float):
+    def set_grams(self, g: float):
         self.grams = g
 
-    def setMoles(self, m: float):
+    def set_moles(self, m: float):
         self.moles = m
 
-    def setML(self, m: float):
-        self.ml = m
+    def set_mL(self, m: float):
+        self.mL = m
 
     # getters
-    def getMolecules(self):
-        return self.molecules
+    def get_molecules(self):
+        return self.molecule
 
-    def getFormula(self):
+    def get_formula(self):
         return self.formula
 
-    def getWeight(self):
-        return self.weight
+    def get_weight(self):
+        return self.molecule.get_weight()
 
-    def getGrams(self):
+    def get_grams(self):
         return self.grams
 
-    def getMoles(self):
+    def get_moles(self):
         return self.moles
 
-    def getML(self):
-        return self.ml
+    def get_mL(self):
+        return self.mL
 
 
-    # other
-    def loadPeriodicTable(self):
+    # load elements from periodic table, as found in elements.csv file
+    def load_elements(self):
         with open("elements.csv", encoding="utf-8") as file:
             for row in csv.reader(file):
-                self.elementsByName[row[0]] = Element(row)
-                self.elementsBySymbol[row[1]] = Element(row)
-                self.elementsByNumber[row[2]] = Element(row)
-                self.elementsByWeight[row[3]] = Element(row)
+                self.elements_by_name[row[0]] = Element(row)
+                self.elements_by_symbol[row[1]] = Element(row)
+                self.elements_by_number[row[2]] = Element(row)
+                self.elements_by_weight[row[3]] = Element(row)
 
 
-    def displayMenu(self, showFullMenu: bool):
-        shortMenu = "entry: "
-        fullMenu = """Enter a formula at any time, or choose from the following:
+    def display_menu(self, show_full_menu: bool):
+        short_menu = "entry (d) display menu, (s) search, (x) exit: "
+        full_menu = """Enter a formula at any time, or choose from the following:
 
         d) display full menu
         g) grams to moles
@@ -320,84 +399,75 @@ class StoichiometryCalculator(object):
 
 entry: """
 
-        return input(fullMenu) if showFullMenu else input(shortMenu)
+        return input(full_menu) if show_full_menu else input(short_menu)
     
 
     def prompt(self):
         """ this is the main menu the user interfaces with """
 
-        fullMenu = True
+        full_menu = True
 
         while True:
 
-            entry = self.displayMenu(fullMenu)
+            entry = self.display_menu(full_menu)
 
-            fullMenu = False
+            full_menu = False
             print("")
             
             if entry == "exit" or entry == "x":
                 break
             elif entry == "d":
-                fullMenu = True
+                full_menu = True
             elif entry == "m":
-                # ensure valid formula has been provided
-                if not self.getFormula():
+                if not self.get_formula():
                     error("StoichiometryCalculator", "prompt", "formula not provided")
                     continue
 
-                self.molesToGrams()
+                self.moles_to_grams()
             elif entry == "g":
-                if not self.getFormula():
+                if not self.get_formula():
                     error("StoichiometryCalculator", "prompt", "formula not provided")
                     continue
 
-                self.gramsToMoles()
+                self.grams_to_moles()
             elif entry == "M":
-                if not self.getFormula():
+                if not self.get_formula():
                     error("StoichiometryCalculator", "prompt", "formula not provided")
                     continue
 
-                self.molesToML()
+                self.moles_to_mL()
             elif entry == "s":
                 self.search()
             else: # user entered a formula
-                self.setMolecules(self.breakDownFormula(entry))
-
-                if not self.getMolecules():
+                self.molecule = Molecule()
+                
+                if not self.break_down_formula(entry):
+                    error("StoichiometryCalculator", "prompt", f"unable to break down formula {entry}")
                     continue
 
-                self.setFormula(entry)
-                self.calculateWeight()
-
-                if self.getWeight() == 0:
-                    error("StoichiometryCalculator", "prompt", f"could not calculate weight for {self.getFormula()}")
-                    self.resetData()
-                else:
-                    print(f"\tformula: {self.getFormula()}, weight: {self.getWeight()}\n")
-                    self.calculatePercentageComposition(self.getMolecules())
-                    print("")
+                self.set_formula(entry)
+                self.molecule.calculate_percentage_compositions()
+                print(f"\t{self.molecule}\n")
 
 
-    def elementExists(self, element: str):
+    def element_exists(self, symbol: str):
         """ check if element exists in *our* periodic table, which is populated from the elements.csv file """
 
-        if not element in self.elementsBySymbol:
-            error("StoichiometryCalculator", "elementExists", f"{element} not found")
+        if not symbol in self.elements_by_symbol:
+            error("StoichiometryCalculator", "element_exists", f"{symbol} not found")
             return 0
 
-        self.elementsBySymbol[element].printElement()
+        self.elements_by_symbol[symbol].print_element()
         return 1
 
     
-    def breakDownFormula(self, formula: str):
-        """ this will return a list with the separate molecules (as lists themselves) in the provided formula """
+    def break_down_formula(self, formula: str):
+        """ this will return a molecule object with the separate elements and their counts """
         """ or it will return an empty list upon error """
-
-        molecule = []  # this will store info about the individual molecule
-        molecules = [] # this will store the complete set of molecule information
 
         element = ""
         subscript = "1"
+
         i = 0
 
         while i < len(formula):
@@ -407,11 +477,11 @@ entry: """
 
                 # store previous molecule
                 if element:
-                    if self.elementExists(element):
-                        molecule = [ element, self.elementsBySymbol[element].getWeight(), subscript ]
-                        molecules.append(molecule)
+                    if self.element_exists(element):
+                        self.molecule.add_element(self.elements_by_symbol[element], subscript)
                     else:
-                        return []
+                        self.molecule = Molecule()
+                        return 0
 
                 # new molecule
                 element = formula[i]
@@ -432,45 +502,13 @@ entry: """
             i += 1
 
         # store last molecule
-        if self.elementExists(element):
-            molecule = [ element, self.elementsBySymbol[element].getWeight(), subscript ]
-            molecules.append(molecule)
+        if self.element_exists(element):
+            self.molecule.add_element(self.elements_by_symbol[element], subscript)
         else:                                                                                                                                                                                 
-            return []
+            self.molecule = Molecule()
+            return 0
 
-        return molecules
-
-
-
-    def calculateWeight(self):
-        """ calculate the total weight of the current formula """
-        
-        weight = 0
-
-        for m in self.molecules:
-            try:
-               elementWeight  = float(m[1])
-            except ValueError:
-                error("StoichiometryCalculator", "calculateWeight", f"{m[0]} weight '{m[1]}' not a float")
-                return 0
-
-            weight += elementWeight * int(m[2])
-
-        self.setWeight(weight)
-
-
-    def calculatePercentageComposition(self, molecules: list):
-        """ calculate the percentage composition of each element in the formula """
-        
-        for m in molecules:
-            moleculeWeight = float(m[1]) * int(m[2])
-            percentage = moleculeWeight / self.getWeight() * 100
-
-            s = int(m[2]) if int(m[2]) > 1 else ""
-            print(f"\t{m[0]}{s}: {moleculeWeight}g / {self.getWeight()}g * 100 = {percentage} %")
-
-            # store percentage composition for other uses
-            m.append(moleculeWeight / self.getWeight())
+        return 1
 
 
     def request(self, value: float, unit: str):
@@ -504,58 +542,58 @@ entry: """
         return value
 
 
-    def molesToGrams(self):
+    def moles_to_grams(self):
         """ converts a certain amount of moles to grams """
     
-        self.setMoles(self.request(self.getMoles(), "mol"))
-        self.setGrams(float(self.getWeight() * self.getMoles()))
+        self.set_moles(self.request(self.get_moles(), "mol"))
+        self.set_grams(float(self.get_weight() * self.get_moles()))
 
-        print(f"\n\t{self.getMoles()} mol {self.getFormula()} = {self.getGrams()} g\n")
+        print(f"\n\t{self.get_moles()} mol {self.get_formula()} = {self.get_grams()} g\n")
 
 
-    def gramsToMoles(self):
+    def grams_to_moles(self):
         """ converts a certain amount of grams to moles """
 
-        self.setGrams(self.request(self.getGrams(), "g"))
-        self.setMoles(float(self.getGrams() / self.getWeight()))
+        self.set_grams(self.request(self.get_grams(), "g"))
+        self.set_moles(float(self.get_grams() / self.get_weight()))
 
-        print(f"\n\t{self.getGrams()} g {self.getFormula()} = {self.getMoles()} mol\n")
+        print(f"\n\t{self.get_grams()} g {self.get_formula()} = {self.get_moles()} mol\n")
 
 
-    def molesToML(self):
+    def moles_to_mL(self):
         """ converts given moles to a liquid molarity """
 
-        self.setMoles(self.request(self.getMoles(), "mol"))
+        self.set_moles(self.request(self.get_moles(), "mol"))
 
         while True:
-            req = input("M of solution (moles/1000ml): ")
+            req = input("M of solution (moles/1000mL): ")
 
             try:
                 molarity = float(req)
             except ValueError:
-                error("StoichiometryCalculator", "molesToML", f"not a float")
+                error("StoichiometryCalculator", "moles_to_mL", f"not a float")
                 continue
             break
 
 
-        self.setML(float(self.getMoles() * 1000 / molarity))
-        print(f"\n\t{self.getMoles()} mol {self.getFormula()} of {molarity} M solution = {self.getML()} mL\n")
+        self.set_mL(float(self.get_moles() * 1000 / molarity))
+        print(f"\n\t{self.get_moles()} mol {self.get_formula()} of {molarity} M solution = {self.get_mL()} mL\n")
 
 
     def search(self):
         """ will search for an element by specified criteria and print its data """
 
-        key = input("\nsearch by number, weight or symbol: ")
+        key = input("search by number, weight or symbol: ")
 
         print("")
-        if key in self.elementsByName:
-            self.elementsByName[key].printElement()
-        elif key in self.elementsBySymbol:
-            self.elementsBySymbol[key].printElement()
-        elif key in self.elementsByNumber:
-            self.elementsByNumber[key].printElement()
-        elif key in self.elementsByWeight:
-            self.elementsByWeight[key].printElement()
+        if key in self.elements_by_name:
+            self.elements_by_name[key].print_element()
+        elif key in self.elements_by_symbol:
+            self.elements_by_symbol[key].print_element()
+        elif key in self.elements_by_number:
+            self.elements_by_number[key].print_element()
+        elif key in self.elements_by_weight:
+            self.elements_by_weight[key].print_element()
         else:
             error("StoichiometryCalculator", "search", f"key '{key}' not found")
 
@@ -564,18 +602,18 @@ entry: """
 
 
 if __name__ == "__main__":
-#    calc = StoichiometryCalculator()
+    calc = StoichiometryCalculator()
 
-    s = {}
-
-    for i in range(1,9):
-        s[i] = Shell(i)
-
-        for ss in s[i].subshells.values():
-            for j in range(0, len(ss.orbitals)):
-                ss.update_electron(j, 0)
-                ss.update_electron(j, 1)
-
-        s[i].print_shell()
+#    s = {}
+#
+#    for i in range(1,9):
+#        s[i] = Shell(i)
+#
+#        for ss in s[i].subshells.values():
+#            for j in range(0, len(ss.orbitals)):
+#                ss.update_electron(j, 0)
+#                ss.update_electron(j, 1)
+#
+#        s[i].print_shell()
 
 
